@@ -1,43 +1,44 @@
 pipeline {
-     agent { label 'vinod' }
+    agent { label 'vinod' }
     tools {
-        jdk 'Java17'
-        maven 'Maven3'
+        jdk 'Java17' // Ensure Java 17 is configured in Global Tool Configuration
+        maven 'Maven3' // Ensure Maven 3 is configured in Global Tool Configuration
     }
    
-    stages{
-        stage("Cleanup Workspace"){
-                steps {
+    stages {
+        stage("Cleanup Workspace") {
+            steps {
                 cleanWs()
-                }
+            }
         }
 
-        stage("Checkout from SCM"){
-                steps {
-                    git branch: 'main', credentialsId: 'github', url: 'https://github.com/rishihudar/register-app'
-                }
+        stage("Checkout from SCM") {
+            steps {
+                git branch: 'main', credentialsId: 'github', url: 'https://github.com/rishihudar/register-app'
+            }
         }
 
-        stage("Build Application"){
+        stage("Build Application") {
             steps {
                 sh "mvn clean package"
             }
+        }
 
-       }
+        stage("Test Application") {
+            steps {
+                sh "mvn test"
+            }
+        }
 
-       stage("Test Application"){
-           steps {
-                 sh "mvn test"
-           }
-       }
-       stage("SonarQube: Code Analysis") {
+        stage("SonarQube: Code Analysis") {
             steps {
                 script {
-                    sonarqube_analysis("Sonar", "register-app") {
-                     sh "mvn sonar:sonar"
+                    // This should use the SonarQube plugin and environment configured in Jenkins
+                    withSonarQubeEnv('Sonar') {
+                        sh "mvn sonar:sonar"
                     }
-               }
-          }
-      }
-   }
+                }
+            }
+        }
+    }
 }
