@@ -8,10 +8,10 @@ pipeline {
         APP_NAME = "register-app-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "rishi9759"
-        DOCKER_PASS = 'dockerhub' // Sensitive information should be stored securely (e.g., Jenkins credentials store)
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
         JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
+        DOCKER_PASS = credentials('dockerhub-password-id') // Use Jenkins credentials store for sensitive data
     }
     stages {
         stage("Cleanup Workspace") {
@@ -65,10 +65,9 @@ pipeline {
             steps {
                 script {
                     // Log in to Docker registry using credentials
-                    docker.withRegistry('', "${DOCKER_PASS}") {
+                    docker.withRegistry('', DOCKER_PASS) {
                         // Build Docker image
                         def docker_image = docker.build("${IMAGE_NAME}")
-                        
                         // Push the image with the version tag and 'latest'
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
@@ -77,10 +76,11 @@ pipeline {
             }
         }
 
-         stage("Trivy: Filesystem scan") {
+        stage("Trivy: Filesystem scan") {
             steps {
                 script {
-                    trivy_scan()
+                    // Assuming Trivy is installed, run the scan on the built Docker image
+                    sh "trivy image ${IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
