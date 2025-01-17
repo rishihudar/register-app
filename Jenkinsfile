@@ -68,6 +68,7 @@ pipeline {
                     docker.withRegistry('', DOCKER_PASS) {
                         // Build Docker image
                         def docker_image = docker.build("${IMAGE_NAME}")
+                        
                         // Push the image with the version tag and 'latest'
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
