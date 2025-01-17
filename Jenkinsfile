@@ -40,12 +40,17 @@ pipeline {
                 }
             }
         }
-         stage("SonarQube: Code Quality Gates") {
+
+        stage("SonarQube: Code Quality Gates") {
             steps {
                 script {
-                    sonarqube_code_quality()
+                    // Wait for SonarQube quality gate status
+                    def qualityGate = waitForQualityGate()
+                    if (qualityGate.status != 'OK') {
+                        error "SonarQube quality gate failed: ${qualityGate.status}"
+                    }
                 }
             }
-        } 
+        }
     }
 }
