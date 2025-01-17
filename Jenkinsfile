@@ -81,9 +81,12 @@ pipeline {
         stage("Trivy: Filesystem Scan") {
             steps {
                 script {
-                    // Trivy scan example using shell commands
+                    // Trivy scan with extended timeout
                     sh """
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER} --severity HIGH,CRITICAL
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image \
+                        --timeout 15m \
+                        --severity HIGH,CRITICAL \
+                        ${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER}
                     """
                 }
             }
