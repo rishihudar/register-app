@@ -8,6 +8,7 @@ pipeline {
         APP_NAME = "register-app-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "rishi9759"
+        DOCKER_PASS = 'dockerhub' // Sensitive information should be stored securely (e.g., Jenkins credentials store)
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
         JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
@@ -40,6 +41,7 @@ pipeline {
         stage("SonarQube: Code Analysis") {
             steps {
                 script {
+                    // This should use the SonarQube plugin and environment configured in Jenkins
                     withSonarQubeEnv('Sonar') {
                         sh "mvn sonar:sonar"
                     }
@@ -50,6 +52,7 @@ pipeline {
         stage("SonarQube: Code Quality Gates") {
             steps {
                 script {
+                    // Wait for SonarQube quality gate status
                     def qualityGate = waitForQualityGate()
                     if (qualityGate.status != 'OK') {
                         error "SonarQube quality gate failed: ${qualityGate.status}"
@@ -61,8 +64,12 @@ pipeline {
         stage("Build & Push Docker Image") {
             steps {
                 script {
-                    docker.withRegistry('', 'dockerhub-credentials-id') {
+                    // Log in to Docker registry using credentials
+                    docker.withRegistry('', "${DOCKER_PASS}") {
+                        // Build Docker image
                         def docker_image = docker.build("${IMAGE_NAME}")
+                        
+                        // Push the image with the version tag and 'latest'
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
                     }
@@ -70,11 +77,10 @@ pipeline {
             }
         }
 
-        stage("Trivy: Filesystem scan") {
+         stage("Trivy: Filesystem scan") {
             steps {
                 script {
-                    // Assuming trivy is installed and available on your Jenkins agent
-                    sh "trivy image ${IMAGE_NAME}:${IMAGE_TAG}"
+                    trivy_scan()
                 }
             }
         }
@@ -82,7 +88,7 @@ pipeline {
         stage('Cleanup Artifacts') {
             steps {
                 script {
-                    // Ensure the image is pushed successfully before removal
+                    // Remove Docker images after scan and push
                     sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
                     sh "docker rmi ${IMAGE_NAME}:latest"
                 }
