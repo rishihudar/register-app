@@ -8,9 +8,7 @@ pipeline {
         APP_NAME = "register-app-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "rishi9759"
-        DOCKER_PASS = 'dockerhub' // Sensitive information should be stored securely (e.g., Jenkins credentials store)
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
-        IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
         JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
     }
     stages {
@@ -41,8 +39,7 @@ pipeline {
         stage("SonarQube: Code Analysis") {
             steps {
                 script {
-                    // This should use the SonarQube plugin and environment configured in Jenkins
-                    withSonarQubeEnv('Sonar') {
+                    withSonarQubeEnv('Sonar') { // Ensure 'Sonar' is the correct server name in Jenkins configuration
                         sh "mvn sonar:sonar"
                     }
                 }
@@ -52,7 +49,6 @@ pipeline {
         stage("SonarQube: Code Quality Gates") {
             steps {
                 script {
-                    // Wait for SonarQube quality gate status
                     def qualityGate = waitForQualityGate()
                     if (qualityGate.status != 'OK') {
                         error "SonarQube quality gate failed: ${qualityGate.status}"
@@ -64,33 +60,40 @@ pipeline {
         stage("Build & Push Docker Image") {
             steps {
                 script {
-                    // Log in to Docker registry using credentials
-                    docker.withRegistry('', "${DOCKER_PASS}") {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                        
+                        def dockerImageTag = "${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER}"
+                        def latestTag = "${IMAGE_NAME}:latest"
+                        
                         // Build Docker image
-                        def docker_image = docker.build("${IMAGE_NAME}")
+                        sh "docker build -t ${dockerImageTag} ."
                         
                         // Push the image with the version tag and 'latest'
-                        docker_image.push("${IMAGE_TAG}")
-                        docker_image.push('latest')
+                        sh "docker push ${dockerImageTag}"
+                        sh "docker tag ${dockerImageTag} ${latestTag}"
+                        sh "docker push ${latestTag}"
                     }
                 }
             }
         }
 
-         stage("Trivy: Filesystem scan") {
+        stage("Trivy: Filesystem Scan") {
             steps {
                 script {
-                    trivy_scan()
+                    // Trivy scan example using shell commands
+                    sh """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER} --severity HIGH,CRITICAL
+                    """
                 }
             }
         }
 
-        stage('Cleanup Artifacts') {
+        stage("Cleanup Artifacts") {
             steps {
                 script {
-                    // Remove Docker images after scan and push
-                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker rmi ${IMAGE_NAME}:latest"
+                    sh "docker rmi ${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER} || true"
+                    sh "docker rmi ${IMAGE_NAME}:latest || true"
                 }
             }
         }
@@ -98,7 +101,13 @@ pipeline {
         stage("Trigger CD Pipeline") {
             steps {
                 script {
-                    sh "curl -v -k --user admin:${JENKINS_API_TOKEN} -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' '192.168.30.202:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'"
+                    sh """
+                        curl -v -k --user admin:${JENKINS_API_TOKEN} \
+                        -X POST -H 'cache-control: no-cache' \
+                        -H 'content-type: application/x-www-form-urlencoded' \
+                        --data 'IMAGE_TAG=${RELEASE}-${BUILD_NUMBER}' \
+                        'http://192.168.30.202:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'
+                    """
                 }
             }
         }
