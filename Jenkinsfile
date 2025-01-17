@@ -4,14 +4,14 @@ pipeline {
         jdk 'Java17' // Ensure Java 17 is configured in Global Tool Configuration
         maven 'Maven3' // Ensure Maven 3 is configured in Global Tool Configuration
     }
-   environment {
-	    APP_NAME = "register-app-pipeline"
-            RELEASE = "1.0.0"
-            DOCKER_USER = "rishi9759"
-            DOCKER_PASS = 'dockerhub'
-            IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
-            IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-     }
+    environment {
+        APP_NAME = "register-app-pipeline"
+        RELEASE = "1.0.0"
+        DOCKER_USER = "rishi9759"
+        DOCKER_PASS = 'dockerhub' // Sensitive information should be stored securely (e.g., Jenkins credentials store)
+        IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
+        IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
+    }
     stages {
         stage("Cleanup Workspace") {
             steps {
@@ -58,20 +58,22 @@ pipeline {
                     }
                 }
             }
+        }
+
         stage("Build & Push Docker Image") {
             steps {
                 script {
-                    docker.withRegistry('',DOCKER_PASS) {
-                        docker_image = docker.build "${IMAGE_NAME}"
-                    }
-
-                    docker.withRegistry('',DOCKER_PASS) {
+                    // Log in to Docker registry using credentials
+                    docker.withRegistry('', "${DOCKER_PASS}") {
+                        // Build Docker image
+                        def docker_image = docker.build("${IMAGE_NAME}")
+                        
+                        // Push the image with the version tag and 'latest'
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
                     }
                 }
             }
-        
         }
     }
 }
