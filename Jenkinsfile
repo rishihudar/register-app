@@ -30,6 +30,14 @@ pipeline {
                  sh "mvn test"
            }
        }
-
+       stage("SonarQube: Code Analysis") {
+            steps {
+                script {
+                    sonarqube_analysis("Sonar", "register-app") {
+                     sh "mvn sonar:sonar"
+                    }
+               }
+          }
+      }
    }
 }
