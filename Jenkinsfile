@@ -2,8 +2,8 @@ pipeline {
     agent { label 'vinod' }
 
     tools {
-        jdk 'Java17' // Ensure Java 17 is configured in Global Tool Configuration
-        maven 'Maven3' // Ensure Maven 3 is configured in Global Tool Configuration
+        jdk 'Java17'  // Ensure Java 17 is configured in Global Tool Configuration
+        maven 'Maven3'  // Ensure Maven 3 is configured in Global Tool Configuration
     }
 
     environment {
@@ -43,7 +43,7 @@ pipeline {
         stage("SonarQube: Code Analysis") {
             steps {
                 script {
-                    withSonarQubeEnv('Sonar') { // Ensure 'Sonar' is the correct server name in Jenkins configuration
+                    withSonarQubeEnv('Sonar') {  // Ensure 'Sonar' is the correct server name in Jenkins configuration
                         sh "mvn sonar:sonar"
                     }
                 }
@@ -66,13 +66,13 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
-                        
+
                         def dockerImageTag = "${IMAGE_NAME}:${RELEASE}-${BUILD_NUMBER}"
                         def latestTag = "${IMAGE_NAME}:latest"
-                        
+
                         // Build Docker image
                         sh "docker build -t ${dockerImageTag} ."
-                        
+
                         // Push the image with the version tag and 'latest'
                         sh "docker push ${dockerImageTag}"
                         sh "docker tag ${dockerImageTag} ${latestTag}"
@@ -105,20 +105,33 @@ pipeline {
             }
         }
 
-      stage("Trigger CD Pipeline") {
-    steps {
-        script {
-            sh """
-                curl -v -k \
-                --user admin:${JENKINS_API_TOKEN} \
-                -X POST \
-                -H 'cache-control: no-cache' \
-                -H 'content-type: application/x-www-form-urlencoded' \
-                --data-urlencode 'IMAGE_TAG=${IMAGE_TAG}' \
-                'http://192.168.30.202:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'
-            """
+        stage("Trigger CD Pipeline") {
+            steps {
+                script {
+                    sh """
+                        curl -v -k \
+                        --user admin:${JENKINS_API_TOKEN} \
+                        -X POST \
+                        -H 'cache-control: no-cache' \
+                        -H 'content-type: application/x-www-form-urlencoded' \
+                        --data-urlencode 'IMAGE_TAG=${IMAGE_TAG}' \
+                        'http://192.168.30.202:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'
+                    """
                 }
             }
+        }
+    }
+
+    post {
+        failure {
+            emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+                      subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Failed",
+                      mimeType: 'text/html', to: "rishiaws100@gmail.com"
+        }
+        success {
+            emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+                      subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Successful",
+                      mimeType: 'text/html', to: "rishiaws100@gmail.com"
         }
     }
 }
