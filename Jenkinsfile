@@ -1,9 +1,11 @@
 pipeline {
     agent { label 'vinod' }
+
     tools {
         jdk 'Java17' // Ensure Java 17 is configured in Global Tool Configuration
         maven 'Maven3' // Ensure Maven 3 is configured in Global Tool Configuration
     }
+
     environment {
         APP_NAME = "register-app-pipeline"
         RELEASE = "1.0.0"
@@ -11,6 +13,7 @@ pipeline {
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
     }
+
     stages {
         stage("Cleanup Workspace") {
             steps {
@@ -105,10 +108,10 @@ pipeline {
             steps {
                 script {
                     sh """
-                        curl -v -k --user admin:${JENKINS_API_TOKEN} \
+                        curl -v -k --user clouduser:${JENKINS_API_TOKEN} \
                         -X POST -H 'cache-control: no-cache' \
                         -H 'content-type: application/x-www-form-urlencoded' \
-                        --data 'IMAGE_TAG=${RELEASE}-${BUILD_NUMBER}' \
+                        --data 'IMAGE_TAG=${IMAGE_TAG}' \
                         'http://192.168.30.202:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'
                     """
                 }
